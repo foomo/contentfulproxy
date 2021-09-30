@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"sort"
@@ -9,6 +10,8 @@ import (
 )
 
 type cacheID string
+
+type requestFlush string
 
 type cachedResponse struct {
 	header   http.Header
@@ -19,6 +22,8 @@ type cacheMap map[cacheID]*cachedResponse
 type cache struct {
 	sync.RWMutex
 	cacheMap cacheMap
+	webHooks []WebHookURL
+	l        *zap.Logger
 }
 
 func (c *cache) set(id cacheID, response *http.Response) (*cachedResponse, error) {
@@ -26,7 +31,10 @@ func (c *cache) set(id cacheID, response *http.Response) (*cachedResponse, error
 	if err != nil {
 		return nil, err
 	}
-	response.Body.Close()
+	err = response.Body.Close()
+	if err != nil {
+		return nil, err
+	}
 	c.Lock()
 	defer c.Unlock()
 	cr := &cachedResponse{
@@ -42,6 +50,22 @@ func (c *cache) get(id cacheID) (*cachedResponse, bool) {
 	defer c.RUnlock()
 	response, ok := c.cacheMap[id]
 	return response, ok
+}
+
+func (c *cache) flush() {
+	c.RLock()
+	defer c.RUnlock()
+	c.cacheMap = cacheMap{}
+}
+
+func (c *cache) callWebHooks() {
+	for _, url := range c.webHooks {
+		c.l.Info("call webhook", zap.String("url", string(url)))
+		_, err := http.Get(string(url))
+		if err != nil {
+			c.l.Error("could not call webhook", zap.String("url", string(url)))
+		}
+	}
 }
 
 func getCacheIDForRequest(r *http.Request) cacheID {

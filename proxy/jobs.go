@@ -17,7 +17,19 @@ type jobRunner func(job requestJob, id cacheID)
 
 func getJobRunner(c *cache, backendURL string, chanJobDone chan requestJobDone) jobRunner {
 	return func(job requestJob, id cacheID) {
-		resp, err := http.Get(backendURL + job.request.URL.RequestURI())
+		req, err := http.NewRequest("GET", backendURL+job.request.URL.RequestURI(), nil)
+		if err != nil {
+			chanJobDone <- requestJobDone{
+				id:  id,
+				err: err,
+			}
+			return
+		}
+		for k, v := range job.request.Header {
+			req.Header.Set(k, string(v[0]))
+		}
+		client := http.Client{}
+		resp, err := client.Do(req)
 		if err != nil {
 			chanJobDone <- requestJobDone{
 				id:  id,

@@ -7,33 +7,51 @@ import (
 	"go.uber.org/zap"
 )
 
+type WebHookURL string
+
 type Proxy struct {
+	l              *zap.Logger
 	cache          *cache
 	backendURL     string
 	chanRequestJob chan requestJob
-	l              *zap.Logger
+	chanFlushJob   chan requestFlush
 }
 
-func NewProxy(ctx context.Context, l *zap.Logger, backendURL string) *Proxy {
+func NewProxy(ctx context.Context, l *zap.Logger, backendURL string, webHooks []WebHookURL) *Proxy {
 	chanRequest := make(chan requestJob)
+	chanFlush := make(chan requestFlush)
 	c := &cache{
 		cacheMap: cacheMap{},
+		webHooks: webHooks,
+		l:        l,
 	}
-	go getLoop(ctx, l, backendURL, c, chanRequest)
+	go getLoop(ctx, l, backendURL, c, chanRequest, chanFlush)
 	return &Proxy{
 		l:              l,
 		cache:          c,
 		backendURL:     backendURL,
 		chanRequestJob: chanRequest,
+		chanFlushJob:   chanFlush,
 	}
 }
 
-func getLoop(ctx context.Context, l *zap.Logger, backendURL string, c *cache, chanRequestJob chan requestJob) {
+func getLoop(
+	ctx context.Context,
+	l *zap.Logger,
+	backendURL string,
+	c *cache,
+	chanRequestJob chan requestJob,
+	chanFlush chan requestFlush,
+) {
 	pendingRequests := map[cacheID][]chan requestJobDone{}
 	chanJobDone := make(chan requestJobDone)
 	jobRunner := getJobRunner(c, backendURL, chanJobDone)
 	for {
 		select {
+		case command := <-chanFlush:
+			c.flush()
+			l.Info("cache flush command coming in", zap.String("flushCommand", string(command)))
+			c.callWebHooks()
 		case nextJob := <-chanRequestJob:
 			id := getCacheIDForRequest(nextJob.request)
 			pendingRequests[id] = append(pendingRequests[id], nextJob.chanDone)
@@ -55,8 +73,16 @@ func getLoop(ctx context.Context, l *zap.Logger, backendURL string, c *cache, ch
 }
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/api/flush":
+		command := requestFlush("doit")
+		p.chanFlushJob <- command
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
+		p.l.Info("serve get request", zap.String("url", r.RequestURI))
 		cacheID := getCacheIDForRequest(r)
 		cachedResponse, ok := p.cache.get(cacheID)
 		if !ok {
@@ -71,13 +97,19 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			cachedResponse = jobDone.cachedResponse
+			p.l.Info("serve response after cache creation", zap.String("url", r.RequestURI))
+		} else {
+			p.l.Info("serve response from cache", zap.String("url", r.RequestURI))
 		}
 		for key, values := range cachedResponse.header {
 			for _, value := range values {
 				w.Header().Set(key, value)
 			}
 		}
-		w.Write(cachedResponse.response)
+		_, err := w.Write(cachedResponse.response)
+		if err != nil {
+			p.l.Info("writing cached response failed", zap.String("url", r.RequestURI))
+		}
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}

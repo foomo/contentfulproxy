@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	flagAddr := flag.String("addr", ":80", "address to listen to")
+	flagAddr := flag.String("addr", ":8888", "address to listen to")
 	flag.Parse()
 	l, err := zap.NewProduction()
 	if err != nil {
@@ -23,7 +23,15 @@ func main() {
 	if len(args) != 1 {
 		l.Error("unexpected number of args - must be exactly one for backendURL")
 	}
-	p := proxy.NewProxy(context.Background(), l, args[0])
+	p := proxy.NewProxy(
+		context.Background(),
+		l,
+		args[0],
+		[]proxy.WebHookURL{
+			"https://www.bestbytes.com",
+			"https://www.spiegel.de",
+		},
+	)
 	l.Info("starting proxy for", zap.String("backendURL", args[0]), zap.String("addr", *flagAddr))
 	l.Error("http listen failed", zap.Error(http.ListenAndServe(*flagAddr, p)))
 }
