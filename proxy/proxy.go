@@ -13,11 +13,12 @@ type Proxy struct {
 	l              *zap.Logger
 	cache          *cache
 	backendURL     string
+	pathPrefix     string
 	chanRequestJob chan requestJob
 	chanFlushJob   chan requestFlush
 }
 
-func NewProxy(ctx context.Context, l *zap.Logger, backendURL string, webHooks []WebHookURL) *Proxy {
+func NewProxy(ctx context.Context, l *zap.Logger, backendURL string, pathPrefix string, webHooks []WebHookURL) (*Proxy, error) {
 	chanRequest := make(chan requestJob)
 	chanFlush := make(chan requestFlush)
 	c := &cache{
@@ -30,9 +31,10 @@ func NewProxy(ctx context.Context, l *zap.Logger, backendURL string, webHooks []
 		l:              l,
 		cache:          c,
 		backendURL:     backendURL,
+		pathPrefix:     pathPrefix,
 		chanRequestJob: chanRequest,
 		chanFlushJob:   chanFlush,
-	}
+	}, nil
 }
 
 func getLoop(
@@ -49,8 +51,8 @@ func getLoop(
 	for {
 		select {
 		case command := <-chanFlush:
-			c.flush()
 			l.Info("cache flush command coming in", zap.String("flushCommand", string(command)))
+			c.flush()
 			c.callWebHooks()
 		case nextJob := <-chanRequestJob:
 			id := getCacheIDForRequest(nextJob.request)
@@ -74,7 +76,7 @@ func getLoop(
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
-	case "/api/flush":
+	case p.pathPrefix + "/update":
 		command := requestFlush("doit")
 		p.chanFlushJob <- command
 		return
@@ -93,13 +95,14 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			jobDone := <-chanDone
 			if jobDone.err != nil {
+				p.l.Error("cache / job error", zap.String("url", r.RequestURI))
 				http.Error(w, "cache / job error", http.StatusInternalServerError)
 				return
 			}
 			cachedResponse = jobDone.cachedResponse
-			p.l.Info("serve response after cache creation", zap.String("url", r.RequestURI))
+			p.l.Info("serve response after cache creation", zap.String("url", r.RequestURI), zap.String("cache id", string(cacheID)))
 		} else {
-			p.l.Info("serve response from cache", zap.String("url", r.RequestURI))
+			p.l.Info("serve response from cache", zap.String("url", r.RequestURI), zap.String("cache id", string(cacheID)))
 		}
 		for key, values := range cachedResponse.header {
 			for _, value := range values {
@@ -108,7 +111,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		_, err := w.Write(cachedResponse.response)
 		if err != nil {
-			p.l.Info("writing cached response failed", zap.String("url", r.RequestURI))
+			p.l.Info("writing cached response failed", zap.String("url", r.RequestURI), zap.String("cache id", string(cacheID)))
 		}
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

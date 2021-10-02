@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"crypto/md5"
+	"encoding/hex"
 )
 
 type cacheID string
@@ -56,6 +58,7 @@ func (c *cache) flush() {
 	c.RLock()
 	defer c.RUnlock()
 	c.cacheMap = cacheMap{}
+	c.l.Info("flushed the cache", zap.Int("length", len(c.cacheMap)))
 }
 
 func (c *cache) callWebHooks() {
@@ -78,8 +81,15 @@ func getCacheIDForRequest(r *http.Request) cacheID {
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		id += k + strings.Join(r.Header[k], "-")
+		// each cf request is signed by an uuid in the X-Request-Id header
+		// we have to remove this from the ID-creation
+		if k != "X-Request-Id" {
+			id += k + strings.Join(r.Header[k], "-")
+		}
 	}
 	// hash it here maybe, to keep it shorter
+	hash := md5.New()
+	hash.Write([]byte(id))
+	id = hex.EncodeToString(hash.Sum(nil))
 	return cacheID(id)
 }

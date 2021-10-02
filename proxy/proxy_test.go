@@ -91,10 +91,11 @@ func getTestServer(t *testing.T) (gs func(path string) int, ws func(path string)
 	backendServer := httptest.NewServer(backendHandler)
 	webHookServer := httptest.NewServer(webHookHandler)
 
-	p := NewProxy(
+	p, _ := NewProxy(
 		context.Background(),
 		l,
 		backendServer.URL,
+		"",
 		[]WebHookURL{
 			WebHookURL(webHookServer.URL + "/update"),
 			WebHookURL(webHookServer.URL + "/flush"),
