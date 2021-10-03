@@ -1,14 +1,14 @@
 package proxy
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
-	"crypto/md5"
-	"encoding/hex"
 )
 
 type cacheID string
@@ -24,7 +24,7 @@ type cacheMap map[cacheID]*cachedResponse
 type cache struct {
 	sync.RWMutex
 	cacheMap cacheMap
-	webHooks []WebHookURL
+	webHooks WebHooks
 	l        *zap.Logger
 }
 
@@ -62,12 +62,17 @@ func (c *cache) flush() {
 }
 
 func (c *cache) callWebHooks() {
+	type r struct {
+		Url  WebHookURL
+		Resp *http.Response
+		Err  error
+	}
+
 	for _, url := range c.webHooks {
-		c.l.Info("call webhook", zap.String("url", string(url)))
-		_, err := http.Get(string(url))
-		if err != nil {
-			c.l.Error("could not call webhook", zap.String("url", string(url)))
-		}
+		go func(url WebHookURL, l *zap.Logger) {
+			l.Info("call webhook", zap.String("url", string(url)))
+			http.Get(string(url))
+		}(url, c.l.With(zap.String("url", string(url))))
 	}
 }
 

@@ -2,15 +2,13 @@ package proxy
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
-	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -132,9 +130,9 @@ func TestProxy(t *testing.T) {
 	assert.Equal(t, 1, gs("/foo"))
 
 	//
-	http.Get(server.URL + "/api/flush")
-	time.Sleep(time.Second * 1)
-	////t.Log(server.URL)
+	http.Get(server.URL + "/update")
+
+
 	//
 	assert.Equal(t, 1, ws("/update"))
 	assert.Equal(t, 1, ws("/flush"))
