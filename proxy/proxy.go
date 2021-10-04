@@ -111,8 +111,8 @@ func getLoop(
 	for {
 		select {
 		case command := <-chanFlush:
-			l.Info("cache flush command coming in", zap.String("flushCommand", string(command)))
-			c.flush()
+			l.Info("cache update command coming in", zap.String("flushCommand", string(command)))
+			c.update()
 			c.callWebHooks()
 		case nextJob := <-chanRequestJob:
 			id := getCacheIDForRequest(nextJob.request)

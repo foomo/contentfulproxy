@@ -54,7 +54,7 @@ func (c *cache) get(id cacheID) (*cachedResponse, bool) {
 	return response, ok
 }
 
-func (c *cache) flush() {
+func (c *cache) update() {
 	c.RLock()
 	defer c.RUnlock()
 	c.cacheMap = cacheMap{}

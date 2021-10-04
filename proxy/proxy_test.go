@@ -15,7 +15,7 @@ const (
 	responseFoo = `i am a foo response`
 	responseBar = `i am bar response`
 	responseUpdate = `update`
-	responseFlush = `flush`
+	responseFlush = `update`
 )
 
 type getStats func(path string) int
@@ -72,7 +72,7 @@ func GetWebHook(t *testing.T) (getStats, http.HandlerFunc) {
 			case "/update":
 				w.Write([]byte(responseUpdate))
 				return
-			case "/flush":
+			case "/update":
 				w.Write([]byte(responseFlush))
 				return
 			}
@@ -96,7 +96,7 @@ func getTestServer(t *testing.T) (gs func(path string) int, ws func(path string)
 		"",
 		[]WebHookURL{
 			WebHookURL(webHookServer.URL + "/update"),
-			WebHookURL(webHookServer.URL + "/flush"),
+			WebHookURL(webHookServer.URL + "/update"),
 		},
 	)
 	s = httptest.NewServer(p)
@@ -135,6 +135,6 @@ func TestProxy(t *testing.T) {
 
 	//
 	assert.Equal(t, 1, ws("/update"))
-	assert.Equal(t, 1, ws("/flush"))
+	assert.Equal(t, 1, ws("/update"))
 
 }
