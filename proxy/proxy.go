@@ -3,39 +3,37 @@ package proxy
 import (
 	"context"
 	"encoding/json"
+	"github.com/foomo/contentfulproxy/packages/go/log"
 	"net/http"
 
 	"go.uber.org/zap"
 )
 
-type WebHookURL string
-type WebHooks []WebHookURL
-
 type Info struct {
-	WebHooks    WebHooks `json:"webhooks,omitempty"`
+	WebHooks    []string `json:"webhooks,omitempty"`
 	CacheLength int      `json:"cachelength,omitempty"`
 	BackendURL  string   `json:"backendurl,omitempty"`
 }
 
 type Proxy struct {
 	l              *zap.Logger
-	cache          *cache
-	backendURL     string
-	pathPrefix     string
+	cache          *Cache
+	backendURL     func() string
+	pathPrefix     func() string
 	chanRequestJob chan requestJob
 	chanFlushJob   chan requestFlush
 }
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
-	case p.pathPrefix + "/update":
+	case p.pathPrefix() + "/update":
 		command := requestFlush("doit")
 		p.chanFlushJob <- command
 		return
-	case p.pathPrefix + "/info":
+	case p.pathPrefix() + "/info":
 		info := Info{
-			WebHooks:    p.cache.webHooks,
-			BackendURL:  p.backendURL,
+			WebHooks:    p.cache.webHooks(),
+			BackendURL:  p.backendURL(),
 			CacheLength: len(p.cache.cacheMap),
 		}
 		jsonResponse(w, info, http.StatusOK)
@@ -55,14 +53,14 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			jobDone := <-chanDone
 			if jobDone.err != nil {
-				p.l.Error("cache / job error", zap.String("url", r.RequestURI))
-				http.Error(w, "cache / job error", http.StatusInternalServerError)
+				p.l.Error("Cache / job error", zap.String("url", r.RequestURI))
+				http.Error(w, "Cache / job error", http.StatusInternalServerError)
 				return
 			}
 			cachedResponse = jobDone.cachedResponse
-			p.l.Info("serve response after cache creation", zap.String("url", r.RequestURI), zap.String("cache id", string(cacheID)))
+			p.l.Info("serve response after cache creation", log.FURL(r.RequestURI), log.FCacheId(string(cacheID)))
 		} else {
-			p.l.Info("serve response from cache", zap.String("url", r.RequestURI), zap.String("cache id", string(cacheID)))
+			p.l.Info("serve response from cache", log.FURL(r.RequestURI), log.FCacheId(string(cacheID)))
 		}
 		for key, values := range cachedResponse.header {
 			for _, value := range values {
@@ -71,21 +69,17 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		_, err := w.Write(cachedResponse.response)
 		if err != nil {
-			p.l.Info("writing cached response failed", zap.String("url", r.RequestURI), zap.String("cache id", string(cacheID)))
+			p.l.Info("writing cached response failed", log.FURL(r.RequestURI), log.FCacheId(string(cacheID)))
 		}
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func NewProxy(ctx context.Context, l *zap.Logger, backendURL string, pathPrefix string, webHooks WebHooks) (*Proxy, error) {
+func NewProxy(ctx context.Context, l *zap.Logger, backendURL func() string, pathPrefix func() string, webHooks func() []string) (*Proxy, error) {
 	chanRequest := make(chan requestJob)
 	chanFlush := make(chan requestFlush)
-	c := &cache{
-		cacheMap: cacheMap{},
-		webHooks: webHooks,
-		l:        l,
-	}
+	c := NewCache(l, webHooks)
 	go getLoop(ctx, l, backendURL, c, chanRequest, chanFlush)
 	return &Proxy{
 		l:              l,
@@ -100,8 +94,8 @@ func NewProxy(ctx context.Context, l *zap.Logger, backendURL string, pathPrefix 
 func getLoop(
 	ctx context.Context,
 	l *zap.Logger,
-	backendURL string,
-	c *cache,
+	backendURL func() string,
+	c *Cache,
 	chanRequestJob chan requestJob,
 	chanFlush chan requestFlush,
 ) {
@@ -110,20 +104,20 @@ func getLoop(
 	jobRunner := getJobRunner(c, backendURL, chanJobDone)
 	for {
 		select {
-		case command := <-chanFlush:
-			l.Info("cache update command coming in", zap.String("flushCommand", string(command)))
+		case <-chanFlush:
+			l.Info("Cache update command coming in")
 			c.update()
 			c.callWebHooks()
 		case nextJob := <-chanRequestJob:
-			id := getCacheIDForRequest(nextJob.request)
-			pendingRequests[id] = append(pendingRequests[id], nextJob.chanDone)
-			requests := pendingRequests[id]
+			cacheID := getCacheIDForRequest(nextJob.request)
+			pendingRequests[cacheID] = append(pendingRequests[cacheID], nextJob.chanDone)
+			requests := pendingRequests[cacheID]
 			if len(requests) == 1 {
-				l.Info("starting jobrunner for", zap.String("uri", nextJob.request.RequestURI), zap.String("id", string(id)))
-				go jobRunner(nextJob, id)
+				l.Info("starting jobrunner for", log.FURL(nextJob.request.RequestURI), log.FCacheId(string(cacheID)))
+				go jobRunner(nextJob, cacheID)
 			}
 		case jobDone := <-chanJobDone:
-			l.Info("request complete", zap.String("id", string(jobDone.id)), zap.Int("num-waiting-clients", len(pendingRequests[jobDone.id])))
+			l.Info("request complete", log.FCacheId(string(jobDone.id)), log.FNumberOfWaitingClients(len(pendingRequests[jobDone.id])))
 			for _, chanPending := range pendingRequests[jobDone.id] {
 				chanPending <- jobDone
 			}

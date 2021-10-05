@@ -3,6 +3,7 @@ package proxy
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"github.com/foomo/contentfulproxy/packages/go/log"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
@@ -21,14 +22,14 @@ type cachedResponse struct {
 }
 type cacheMap map[cacheID]*cachedResponse
 
-type cache struct {
+type Cache struct {
 	sync.RWMutex
 	cacheMap cacheMap
-	webHooks WebHooks
+	webHooks func() []string
 	l        *zap.Logger
 }
 
-func (c *cache) set(id cacheID, response *http.Response) (*cachedResponse, error) {
+func (c *Cache) set(id cacheID, response *http.Response) (*cachedResponse, error) {
 	responseBytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
@@ -47,33 +48,39 @@ func (c *cache) set(id cacheID, response *http.Response) (*cachedResponse, error
 	return cr, nil
 }
 
-func (c *cache) get(id cacheID) (*cachedResponse, bool) {
+func (c *Cache) get(id cacheID) (*cachedResponse, bool) {
 	c.RLock()
 	defer c.RUnlock()
 	response, ok := c.cacheMap[id]
 	return response, ok
 }
 
-func (c *cache) update() {
+func (c *Cache) update() {
 	c.RLock()
 	defer c.RUnlock()
 	c.cacheMap = cacheMap{}
-	c.l.Info("flushed the cache", zap.Int("length", len(c.cacheMap)))
+	c.l.Info("flushed the cache")
 }
 
-func (c *cache) callWebHooks() {
-	type r struct {
-		Url  WebHookURL
-		Resp *http.Response
-		Err  error
+func (c *Cache) callWebHooks() {
+	for _, url := range c.webHooks() {
+		go func(url string, l *zap.Logger) {
+			l.Info("call webhook")
+			_, err := http.Get(url)
+			if err != nil {
+				l.Error("error while calling webhook", zap.Error(err))
+			}
+		}(url, c.l.With(log.FURL(url)))
 	}
+}
 
-	for _, url := range c.webHooks {
-		go func(url WebHookURL, l *zap.Logger) {
-			l.Info("call webhook", zap.String("url", string(url)))
-			http.Get(string(url))
-		}(url, c.l.With(zap.String("url", string(url))))
+func NewCache(l *zap.Logger, webHooks func() []string) *Cache {
+	c := &Cache{
+		cacheMap: cacheMap{},
+		webHooks: webHooks,
+		l:        l.With(log.FServiceRoutine("cache")),
 	}
+	return c
 }
 
 func getCacheIDForRequest(r *http.Request) cacheID {

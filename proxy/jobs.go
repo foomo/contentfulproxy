@@ -15,9 +15,9 @@ type requestJob struct {
 
 type jobRunner func(job requestJob, id cacheID)
 
-func getJobRunner(c *cache, backendURL string, chanJobDone chan requestJobDone) jobRunner {
+func getJobRunner(c *Cache, backendURL func() string, chanJobDone chan requestJobDone) jobRunner {
 	return func(job requestJob, id cacheID) {
-		req, err := http.NewRequest("GET", backendURL+job.request.URL.RequestURI(), nil)
+		req, err := http.NewRequest("GET", backendURL()+job.request.URL.RequestURI(), nil)
 		if err != nil {
 			chanJobDone <- requestJobDone{
 				id:  id,

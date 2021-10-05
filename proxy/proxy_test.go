@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
+	"time"
 )
 
 const (
@@ -40,10 +41,10 @@ func GetBackend(t *testing.T) (getStats, http.HandlerFunc) {
 
 			switch r.URL.Path {
 			case "/foo":
-				w.Write([]byte(responseFoo))
+				_, _ = w.Write([]byte(responseFoo))
 				return
 			case "/bar":
-				w.Write([]byte(responseBar))
+				_, _ = w.Write([]byte(responseBar))
 				return
 			}
 			http.Error(w, "not found", http.StatusNotFound)
@@ -69,11 +70,11 @@ func GetWebHook(t *testing.T) (getStats, http.HandlerFunc) {
 			t.Log("webhook: url called", r.URL.Path)
 
 			switch r.URL.Path {
-			case "/update":
-				w.Write([]byte(responseUpdate))
+			case "/test1":
+				_, _ = w.Write([]byte(responseUpdate))
 				return
-			case "/update":
-				w.Write([]byte(responseFlush))
+			case "/test2":
+				_, _ = w.Write([]byte(responseFlush))
 				return
 			}
 			http.Error(w, "not found", http.StatusNotFound)
@@ -92,11 +93,13 @@ func getTestServer(t *testing.T) (gs func(path string) int, ws func(path string)
 	p, _ := NewProxy(
 		context.Background(),
 		l,
-		backendServer.URL,
-		"",
-		[]WebHookURL{
-			WebHookURL(webHookServer.URL + "/update"),
-			WebHookURL(webHookServer.URL + "/update"),
+		func() string {return backendServer.URL},
+		func() string {return ""},
+		func() []string {
+			return []string{
+				webHookServer.URL + "/test1",
+				webHookServer.URL + "/test2",
+			}
 		},
 	)
 	s = httptest.NewServer(p)
@@ -118,7 +121,7 @@ func TestProxy(t *testing.T) {
 	}
 	for j := 0; j < 10; j++ {
 		wg := sync.WaitGroup{}
-		for i := 0; i < 1; i++ {
+		for i := 0; i < 10; i++ {
 			wg.Add(1)
 			go func() {
 				get("/foo")
@@ -129,12 +132,17 @@ func TestProxy(t *testing.T) {
 	}
 	assert.Equal(t, 1, gs("/foo"))
 
+
+	// check the current status
+	//response, err := http.Get(server.URL + "/info")
+	//assert.NoError(t, err)
+
 	//
-	http.Get(server.URL + "/update")
+	_, _ = http.Get(server.URL + "/update")
 
+	time.Sleep(time.Second * 1)
 
 	//
-	assert.Equal(t, 1, ws("/update"))
-	assert.Equal(t, 1, ws("/update"))
-
+	assert.Equal(t, 1, ws("/test1"))
+	assert.Equal(t, 1, ws("/test2"))
 }
