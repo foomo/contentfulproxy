@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/foomo/contentfulproxy/packages/go/log"
+	"github.com/foomo/contentfulproxy/packages/go/metrics"
 	"net/http"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -15,6 +17,12 @@ type Info struct {
 	BackendURL  string   `json:"backendurl,omitempty"`
 }
 
+type Metrics struct {
+	NumUpdate       prometheus.Counter
+	NumProxyRequest prometheus.Counter
+	NumApiRequest   prometheus.Counter
+}
+
 type Proxy struct {
 	l              *zap.Logger
 	cache          *Cache
@@ -22,11 +30,13 @@ type Proxy struct {
 	pathPrefix     func() string
 	chanRequestJob chan requestJob
 	chanFlushJob   chan requestFlush
+	metrics        *Metrics
 }
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case p.pathPrefix() + "/update":
+		p.metrics.NumUpdate.Inc()
 		command := requestFlush("doit")
 		p.chanFlushJob <- command
 		return
@@ -43,6 +53,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		p.l.Info("serve get request", zap.String("url", r.RequestURI))
+		p.metrics.NumProxyRequest.Inc()
 		cacheID := getCacheIDForRequest(r)
 		cachedResponse, ok := p.cache.get(cacheID)
 		if !ok {
@@ -59,6 +70,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			cachedResponse = jobDone.cachedResponse
 			p.l.Info("serve response after cache creation", log.FURL(r.RequestURI), log.FCacheId(string(cacheID)))
+			p.metrics.NumApiRequest.Inc()
 		} else {
 			p.l.Info("serve response from cache", log.FURL(r.RequestURI), log.FCacheId(string(cacheID)))
 		}
@@ -88,6 +100,7 @@ func NewProxy(ctx context.Context, l *zap.Logger, backendURL func() string, path
 		pathPrefix:     pathPrefix,
 		chanRequestJob: chanRequest,
 		chanFlushJob:   chanFlush,
+		metrics:        getMetrics(),
 	}, nil
 }
 
@@ -140,5 +153,12 @@ func jsonResponse(w http.ResponseWriter, v interface{}, statusCode int) {
 	err := encoder.Encode(v)
 	if err != nil {
 		http.Error(w, "could not marshal info export", http.StatusInternalServerError)
+	}
+}
+func getMetrics() *Metrics {
+	return &Metrics{
+		NumUpdate: metrics.NewCounter("numupdates", "number of times the update webhook was called"),
+		NumApiRequest: metrics.NewCounter("numapirequests", "number of times the proxy performed a contentful api-request"),
+		NumProxyRequest: metrics.NewCounter("numproxyrequests", "number of times the proxy received an api-request"),
 	}
 }
