@@ -29,10 +29,8 @@ linters:
     - bodyclose
     - deadcode
     - dogsled
-    - dupl
     - exhaustive
     - exportloopref
-    - gci
     - goconst
     - gofmt
     - gofumpt
@@ -43,7 +41,6 @@ linters:
     - ineffassign
     - misspell
     - nakedret
-    - noctx
     - nolintlint
     - prealloc
     - rowserrcheck
@@ -67,6 +64,9 @@ linters:
     - exportloopref
 
     # unused
+    # - gci
+    # - noctx
+    # - dupl
     # - godot
     # - gocognit
     # - nlreturn

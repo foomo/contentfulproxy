@@ -1,0 +1,31 @@
+# .goreleaser.yml
+# Build customization
+builds:
+  - binary: contentfulproxy
+    main: ./cmd/contentfulproxy/main.go
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+    goos:
+      - windows
+      - darwin
+      - linux
+    goarch:
+      - amd64
+
+# .goreleaser.yml
+archives:
+  - format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+
+brews:
+  # Reporitory to push the tap to.
+  - tap:
+      owner: foomo
+      name: homebrew-contentfulproxy
+    caveats: "contentfulproxy -webserver-address=$CONTENTFULPROXY_SERVER_ADDR"
+    homepage: "https://github.com/foomo/contentfulproxy"
+    description: "An experimental proxy for read access to contentful to save your API quota"

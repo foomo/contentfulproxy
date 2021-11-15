@@ -22,6 +22,7 @@ const (
 
 type getStats func(path string) int
 
+//
 func GetBackend(t *testing.T) (getStats, http.HandlerFunc) {
 	stats := map[string]int{}
 	statLock := sync.RWMutex{}
@@ -136,7 +137,9 @@ func TestProxy(t *testing.T) {
 	// assert.NoError(t, err)
 
 	//
-	_, _ = http.Get(server.URL + "/update")
+	resp, err := http.Get(server.URL + "/update")
+	assert.NoError(t, err)
+	defer resp.Body.Close()
 
 	time.Sleep(time.Second * 1)
 

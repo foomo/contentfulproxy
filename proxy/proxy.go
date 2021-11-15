@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-
 	"github.com/foomo/contentfulproxy/packages/go/log"
 	"go.uber.org/zap"
 )
@@ -59,9 +58,9 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			cachedResponse = jobDone.cachedResponse
-			p.l.Info("serve response after cache creation", log.FURL(r.RequestURI), log.FCacheId(string(cacheID)))
+			p.l.Info("serve response after cache creation", log.FURL(r.RequestURI), log.FCacheID(string(cacheID)))
 		} else {
-			p.l.Info("serve response from cache", log.FURL(r.RequestURI), log.FCacheId(string(cacheID)))
+			p.l.Info("serve response from cache", log.FURL(r.RequestURI), log.FCacheID(string(cacheID)))
 		}
 		for key, values := range cachedResponse.header {
 			for _, value := range values {
@@ -70,7 +69,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		_, err := w.Write(cachedResponse.response)
 		if err != nil {
-			p.l.Info("writing cached response failed", log.FURL(r.RequestURI), log.FCacheId(string(cacheID)))
+			p.l.Info("writing cached response failed", log.FURL(r.RequestURI), log.FCacheID(string(cacheID)))
 		}
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -114,11 +113,11 @@ func getLoop(
 			pendingRequests[cacheID] = append(pendingRequests[cacheID], nextJob.chanDone)
 			requests := pendingRequests[cacheID]
 			if len(requests) == 1 {
-				l.Info("starting jobrunner for", log.FURL(nextJob.request.RequestURI), log.FCacheId(string(cacheID)))
+				l.Info("starting jobrunner for", log.FURL(nextJob.request.RequestURI), log.FCacheID(string(cacheID)))
 				go jobRunner(nextJob, cacheID)
 			}
 		case jobDone := <-chanJobDone:
-			l.Info("request complete", log.FCacheId(string(jobDone.id)), log.FNumberOfWaitingClients(len(pendingRequests[jobDone.id])))
+			l.Info("request complete", log.FCacheID(string(jobDone.id)), log.FNumberOfWaitingClients(len(pendingRequests[jobDone.id])))
 			for _, chanPending := range pendingRequests[jobDone.id] {
 				chanPending <- jobDone
 			}
