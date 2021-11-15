@@ -3,9 +3,9 @@ package log
 import "go.uber.org/zap"
 
 const (
-	ServiceRoutineKey = "service_routine"
-	CacheIdKey = "cache_id"
-	URLKey = "url"
+	ServiceRoutineKey         = "service_routine"
+	CacheIdKey                = "cache_id"
+	URLKey                    = "url"
 	NumberOfWaitingClientsKey = "num_waiting_clients"
 )
 

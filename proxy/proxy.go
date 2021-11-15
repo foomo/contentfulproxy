@@ -3,9 +3,10 @@ package proxy
 import (
 	"context"
 	"encoding/json"
-	"github.com/foomo/contentfulproxy/packages/go/log"
 	"net/http"
 
+
+	"github.com/foomo/contentfulproxy/packages/go/log"
 	"go.uber.org/zap"
 )
 

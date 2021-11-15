@@ -3,13 +3,14 @@ package proxy
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"github.com/foomo/contentfulproxy/packages/go/log"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/foomo/contentfulproxy/packages/go/log"
+	"go.uber.org/zap"
 )
 
 type cacheID string
