@@ -26,6 +26,6 @@ brews:
   - tap:
       owner: foomo
       name: homebrew-contentfulproxy
-    caveats: "contentfulproxy -webserver-address=$CONTENTFULPROXY_SERVER_ADDR"
+    caveats: "contentfulproxy -webserver-address=:80"
     homepage: "https://github.com/foomo/contentfulproxy"
     description: "An experimental proxy for read access to contentful to save your API quota"
