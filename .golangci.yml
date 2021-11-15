@@ -1,0 +1,89 @@
+run:
+  timeout: 5m
+
+linters-settings:
+  gci:
+    local-prefixes: github.com/foomo/squadron
+  golint:
+    min-confidence: 0
+  goimports:
+    local-prefixes: github.com/foomo/squadron
+  revive:
+    rules:
+      - name: indent-error-flow
+        disabled: true
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+    disabled-tags:
+      - performance
+      - experimental
+      - opinionated
+  lll:
+    line-length: 200
+
+linters:
+  disable-all: true
+  enable:
+    - bodyclose
+    - deadcode
+    - dogsled
+    - dupl
+    - exhaustive
+    - exportloopref
+    - gci
+    - goconst
+    - gofmt
+    - gofumpt
+    - goimports
+    - revive
+    - goprintffuncname
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - noctx
+    - nolintlint
+    - prealloc
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - structcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - varcheck
+    - whitespace
+    - errcheck
+    - gocritic
+    - gosimple
+
+    - gocyclo
+    - gosec
+    - lll
+    - exportloopref
+
+    # unused
+    # - godot
+    # - gocognit
+    # - nlreturn
+    # - gochecknoglobals
+    # - gochecknoinits
+    # - depguard
+    # - goheader
+    # - gomodguard
+
+    # don't enable:
+    # - asciicheck
+    # - funlen
+    # - godox
+    # - goerr113
+    # - gomnd
+    # - interfacer
+    # - maligned
+    # - nestif
+    # - testpackage
+    # - wsl
