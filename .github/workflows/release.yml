@@ -46,7 +46,7 @@ jobs:
         with:
           images: foomo/contentfulproxy
           tags: |
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}}
 
       - name: Login to Docker Hub
         uses: docker/login-action@v1
