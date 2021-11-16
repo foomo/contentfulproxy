@@ -1,15 +1,16 @@
 package proxy
 
 import (
-	"crypto/md5"
+	"crypto/md5" // nolint:gosec
 	"encoding/hex"
-	"github.com/foomo/contentfulproxy/packages/go/log"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/foomo/contentfulproxy/packages/go/log"
+	"go.uber.org/zap"
 )
 
 type cacheID string
@@ -66,10 +67,11 @@ func (c *Cache) callWebHooks() {
 	for _, url := range c.webHooks() {
 		go func(url string, l *zap.Logger) {
 			l.Info("call webhook")
-			_, err := http.Get(url)
+			resp, err := http.Get(url) // nolint:gosec
 			if err != nil {
 				l.Error("error while calling webhook", zap.Error(err))
 			}
+			defer resp.Body.Close()
 		}(url, c.l.With(log.FURL(url)))
 	}
 }
@@ -100,7 +102,7 @@ func getCacheIDForRequest(r *http.Request) cacheID {
 		}
 	}
 	// hash it here maybe, to keep it shorter
-	hash := md5.New()
+	hash := md5.New() // nolint:gosec
 	hash.Write([]byte(id))
 	id = hex.EncodeToString(hash.Sum(nil))
 	return cacheID(id)

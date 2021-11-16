@@ -2,25 +2,27 @@ package proxy
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 const (
-	responseFoo = `i am a foo response`
-	responseBar = `i am bar response`
+	responseFoo    = `i am a foo response`
+	responseBar    = `i am bar response`
 	responseUpdate = `update`
-	responseFlush = `update`
+	responseFlush  = `update`
 )
 
 type getStats func(path string) int
 
+//
 func GetBackend(t *testing.T) (getStats, http.HandlerFunc) {
 	stats := map[string]int{}
 	statLock := sync.RWMutex{}
@@ -82,7 +84,6 @@ func GetWebHook(t *testing.T) (getStats, http.HandlerFunc) {
 }
 
 func getTestServer(t *testing.T) (gs func(path string) int, ws func(path string) int, s *httptest.Server) {
-
 	l, _ := zap.NewProduction()
 
 	gs, backendHandler := GetBackend(t)
@@ -93,8 +94,8 @@ func getTestServer(t *testing.T) (gs func(path string) int, ws func(path string)
 	p, _ := NewProxy(
 		context.Background(),
 		l,
-		func() string {return backendServer.URL},
-		func() string {return ""},
+		func() string { return backendServer.URL },
+		func() string { return "" },
 		func() []string {
 			return []string{
 				webHookServer.URL + "/test1",
@@ -105,7 +106,6 @@ func getTestServer(t *testing.T) (gs func(path string) int, ws func(path string)
 	s = httptest.NewServer(p)
 	t.Log("we have a proxy in front of it running on", s.URL)
 	return gs, ws, s
-
 }
 
 func TestProxy(t *testing.T) {
@@ -132,13 +132,14 @@ func TestProxy(t *testing.T) {
 	}
 	assert.Equal(t, 1, gs("/foo"))
 
-
 	// check the current status
-	//response, err := http.Get(server.URL + "/info")
-	//assert.NoError(t, err)
+	// response, err := http.Get(server.URL + "/info")
+	// assert.NoError(t, err)
 
 	//
-	_, _ = http.Get(server.URL + "/update")
+	resp, err := http.Get(server.URL + "/update")
+	assert.NoError(t, err)
+	defer resp.Body.Close()
 
 	time.Sleep(time.Second * 1)
 

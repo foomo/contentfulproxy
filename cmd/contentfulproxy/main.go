@@ -33,7 +33,6 @@ func main() {
 	webserverPath := config.DefaultWebserverPath(c)
 	backendURL := config.DefaultBackendURL(c)
 
-
 	// create proxy
 	proxy, _ := proxy.NewProxy(
 		context.Background(),

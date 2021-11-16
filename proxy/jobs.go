@@ -26,7 +26,7 @@ func getJobRunner(c *Cache, backendURL func() string, chanJobDone chan requestJo
 			return
 		}
 		for k, v := range job.request.Header {
-			req.Header.Set(k, string(v[0]))
+			req.Header.Set(k, v[0])
 		}
 		client := http.Client{}
 		resp, err := client.Do(req)

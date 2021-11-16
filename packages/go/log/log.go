@@ -3,9 +3,9 @@ package log
 import "go.uber.org/zap"
 
 const (
-	ServiceRoutineKey = "service_routine"
-	CacheIdKey = "cache_id"
-	URLKey = "url"
+	ServiceRoutineKey         = "service_routine"
+	CacheIDKey                = "cache_id"
+	URLKey                    = "url"
 	NumberOfWaitingClientsKey = "num_waiting_clients"
 )
 
@@ -13,8 +13,8 @@ func FServiceRoutine(name string) zap.Field {
 	return zap.String(ServiceRoutineKey, name)
 }
 
-func FCacheId(name string) zap.Field {
-	return zap.String(CacheIdKey, name)
+func FCacheID(name string) zap.Field {
+	return zap.String(CacheIDKey, name)
 }
 
 func FURL(name string) zap.Field {
