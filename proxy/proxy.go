@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/foomo/contentfulproxy/packages/go/log"
+	keellog "github.com/foomo/keel/log"
 	"go.uber.org/zap"
 )
 
@@ -56,7 +57,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		p.l.Info("serve get request", zap.String("url", r.RequestURI))
 		p.metrics.NumProxyRequest.Inc()
-		cacheID := getCacheIDForRequest(r)
+		cacheID := getCacheIDForRequest(r, p.pathPrefix)
 		cachedResponse, ok := p.cache.get(cacheID)
 		if !ok {
 			chanDone := make(chan requestJobDone)
@@ -66,15 +67,17 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			jobDone := <-chanDone
 			if jobDone.err != nil {
-				p.l.Error("Cache / job error", zap.String("url", r.RequestURI))
+				keellog.WithError(p.l, jobDone.err).Error("Cache / job error")
 				http.Error(w, "Cache / job error", http.StatusInternalServerError)
 				return
 			}
 			cachedResponse = jobDone.cachedResponse
 			p.l.Info("serve response after cache creation", log.FURL(r.RequestURI), log.FCacheID(string(cacheID)))
+			p.l.Info("length of response", keellog.FValue(len(cachedResponse.response)))
 			p.metrics.NumAPIRequest.Inc()
 		} else {
 			p.l.Info("serve response from cache", log.FURL(r.RequestURI), log.FCacheID(string(cacheID)))
+			p.l.Info("length of response", keellog.FValue(len(cachedResponse.response)))
 		}
 		for key, values := range cachedResponse.header {
 			for _, value := range values {
@@ -83,7 +86,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		_, err := w.Write(cachedResponse.response)
 		if err != nil {
-			p.l.Info("writing cached response failed", log.FURL(r.RequestURI), log.FCacheID(string(cacheID)))
+			keellog.WithError(p.l, err).Error("writing cached response failed", log.FCacheID(string(cacheID)))
 		}
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -94,7 +97,7 @@ func NewProxy(ctx context.Context, l *zap.Logger, backendURL func() string, path
 	chanRequest := make(chan requestJob)
 	chanFlush := make(chan requestFlush)
 	c := NewCache(l, webHooks)
-	go getLoop(ctx, l, backendURL, c, chanRequest, chanFlush)
+	go getLoop(ctx, l, backendURL, pathPrefix, c, chanRequest, chanFlush)
 	return &Proxy{
 		l:              l,
 		cache:          c,
@@ -110,13 +113,14 @@ func getLoop(
 	ctx context.Context,
 	l *zap.Logger,
 	backendURL func() string,
+	pathPrefix func() string,
 	c *Cache,
 	chanRequestJob chan requestJob,
 	chanFlush chan requestFlush,
 ) {
 	pendingRequests := map[cacheID][]chan requestJobDone{}
 	chanJobDone := make(chan requestJobDone)
-	jobRunner := getJobRunner(c, backendURL, chanJobDone)
+	jobRunner := getJobRunner(l, c, backendURL, pathPrefix, chanJobDone)
 	for {
 		select {
 		case <-chanFlush:
@@ -124,7 +128,7 @@ func getLoop(
 			c.update()
 			c.callWebHooks()
 		case nextJob := <-chanRequestJob:
-			cacheID := getCacheIDForRequest(nextJob.request)
+			cacheID := getCacheIDForRequest(nextJob.request, pathPrefix)
 			pendingRequests[cacheID] = append(pendingRequests[cacheID], nextJob.chanDone)
 			requests := pendingRequests[cacheID]
 			if len(requests) == 1 {

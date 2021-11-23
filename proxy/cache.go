@@ -85,8 +85,8 @@ func NewCache(l *zap.Logger, webHooks func() []string) *Cache {
 	return c
 }
 
-func getCacheIDForRequest(r *http.Request) cacheID {
-	id := r.URL.RequestURI()
+func getCacheIDForRequest(r *http.Request, pathPrefix func() string) cacheID {
+	id := stripPrefixFromUrl(r.URL.RequestURI(), pathPrefix)
 	keys := make([]string, len(r.Header))
 	i := 0
 	for k := range r.Header {
@@ -106,4 +106,8 @@ func getCacheIDForRequest(r *http.Request) cacheID {
 	hash.Write([]byte(id))
 	id = hex.EncodeToString(hash.Sum(nil))
 	return cacheID(id)
+}
+
+func stripPrefixFromUrl(url string, pathPrefix func() string) string {
+	return strings.Replace(url, pathPrefix(), "", 1)
 }
