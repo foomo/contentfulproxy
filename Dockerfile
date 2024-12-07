@@ -25,6 +25,7 @@ RUN upx /src/bin/contentfulproxy
 ##############################
 ###### STAGE: PACKAGE   ######
 ##############################
+# TODO: use non-root
 FROM alpine:latest
 
 ENV CONTENTFULPROXY_SERVER_ADDR=0.0.0.0:80

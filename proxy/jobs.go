@@ -1,6 +1,11 @@
 package proxy
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/foomo/contentfulproxy/packages/go/log"
+	"go.uber.org/zap"
+)
 
 type requestJobDone struct {
 	cachedResponse *cachedResponse
@@ -15,9 +20,12 @@ type requestJob struct {
 
 type jobRunner func(job requestJob, id cacheID)
 
-func getJobRunner(c *Cache, backendURL func() string, chanJobDone chan requestJobDone) jobRunner {
+func getJobRunner(l *zap.Logger, c *Cache, backendURL func() string, pathPrefix func() string, chanJobDone chan requestJobDone) jobRunner {
 	return func(job requestJob, id cacheID) {
-		req, err := http.NewRequest("GET", backendURL()+job.request.URL.RequestURI(), nil)
+		// backend url is the contentful api domain like https://cdn.contenful.com
+		calledURL := backendURL() + stripPrefixFromURL(job.request.URL.RequestURI(), pathPrefix)
+		l.Info("URL called by job-runner", log.FURL(calledURL))
+		req, err := http.NewRequest("GET", calledURL, nil)
 		if err != nil {
 			chanJobDone <- requestJobDone{
 				id:  id,
