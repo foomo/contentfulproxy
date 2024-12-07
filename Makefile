@@ -15,17 +15,27 @@ clean:
 .PHONY: test
 ## Run tests
 test:
-	go test -v ./...
+	@GO_TEST_TAGS=-skip go test -coverprofile=coverage.out -race -json ./... | gotestfmt
 
 .PHONY: lint
 ## Run linter
 lint:
-	golangci-lint run
+	@golangci-lint run
 
 .PHONY: lint.fix
 ## Fix lint violations
 lint.fix:
-	golangci-lint run --fix
+	@golangci-lint run --fix
+
+.PHONY: tidy
+## Run go mod tidy
+tidy:
+	@go mod tidy
+
+.PHONY: outdated
+## Show outdated direct dependencies
+outdated:
+	@go list -u -m -json all | go-mod-outdated -update -direct
 
 ## === Binary ===
 

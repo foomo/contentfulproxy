@@ -1,5 +1,15 @@
+[![Build Status](https://github.com/foomo/contentfulproxy/actions/workflows/test.yml/badge.svg?branch=main&event=push)](https://github.com/foomo/contentfulproxy/actions/workflows/test.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/foomo/contentfulproxy)](https://goreportcard.com/report/github.com/foomo/contentfulproxy)
+[![Coverage Status](https://coveralls.io/repos/github/foomo/contentfulproxy/badge.svg?branch=main&)](https://coveralls.io/github/foomo/contentfulproxy?branch=main)
+[![GoDoc](https://godoc.org/github.com/foomo/contentfulproxy?status.svg)](https://godoc.org/github.com/foomo/contentfulproxy)
+
+<p align="center">
+  <img alt="sesamy" src=".github/assets/contentfulproxy.png"/>
+</p>
+
 # contentfulproxy
-An experimental reverse proxy cache for the contentful API. Point your contentful client to the proxy instead of the contenful API endpoints (cdn.contentful.com or preview.contentful.com) and the proxy will cache the API-responses and return them.
+
+> An experimental reverse proxy cache for the contentful API. Point your contentful client to the proxy instead of the contenful API endpoints (cdn.contentful.com or preview.contentful.com) and the proxy will cache the API-responses and return them.
 
 ## Configuration
 ```bash
@@ -58,6 +68,12 @@ squadron:
 						port: 80
 ```
 
+## How to Contribute
 
-# License
-Copyright (c) foomo under the LGPL 3.0 license.
+Make a pull request...
+
+## License
+
+Distributed under MIT License, please see license file within the code for more details.
+
+_Made with ♥ [foomo](https://www.foomo.org) by [bestbytes](https://www.bestbytes.com)_
