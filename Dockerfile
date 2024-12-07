@@ -1,9 +1,7 @@
 ##############################
 ###### STAGE: BUILD     ######
 ##############################
-FROM golang:1.17-alpine AS build-env
-
-ENV GO111MODULE=on
+FROM golang:1.23.4-alpine AS build-env
 
 RUN apk add --no-cache upx
 
