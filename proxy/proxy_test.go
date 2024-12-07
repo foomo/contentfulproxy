@@ -1,16 +1,18 @@
-package proxy
+package proxy_test
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/foomo/contentfulproxy/proxy"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 const (
@@ -22,8 +24,8 @@ const (
 
 type getStats func(path string) int
 
-//
 func GetBackend(t *testing.T) (getStats, http.HandlerFunc) {
+	t.Helper()
 	stats := map[string]int{}
 	statLock := sync.RWMutex{}
 	return func(path string) int {
@@ -54,6 +56,7 @@ func GetBackend(t *testing.T) (getStats, http.HandlerFunc) {
 }
 
 func GetWebHook(t *testing.T) (getStats, http.HandlerFunc) {
+	t.Helper()
 	stats := map[string]int{}
 	statLock := sync.RWMutex{}
 	return func(path string) int {
@@ -83,15 +86,16 @@ func GetWebHook(t *testing.T) (getStats, http.HandlerFunc) {
 		}
 }
 
-func getTestServer(t *testing.T) (gs func(path string) int, ws func(path string) int, s *httptest.Server) {
-	l, _ := zap.NewProduction()
+func getTestServer(t *testing.T) (func(path string) int, func(path string) int, *httptest.Server) {
+	t.Helper()
+	l := zaptest.NewLogger(t)
 
 	gs, backendHandler := GetBackend(t)
 	ws, webHookHandler := GetWebHook(t)
 	backendServer := httptest.NewServer(backendHandler)
 	webHookServer := httptest.NewServer(webHookHandler)
 
-	p, _ := NewProxy(
+	p, _ := proxy.NewProxy(
 		context.Background(),
 		l,
 		func() string { return backendServer.URL },
@@ -103,7 +107,7 @@ func getTestServer(t *testing.T) (gs func(path string) int, ws func(path string)
 			}
 		},
 	)
-	s = httptest.NewServer(p)
+	s := httptest.NewServer(p)
 	t.Log("we have a proxy in front of it running on", s.URL)
 	return gs, ws, s
 }
@@ -113,10 +117,10 @@ func TestProxy(t *testing.T) {
 
 	get := func(path string) string {
 		resp, err := http.Get(server.URL + path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer resp.Body.Close()
-		responseBytes, err := ioutil.ReadAll(resp.Body)
-		assert.NoError(t, err)
+		responseBytes, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
 		return string(responseBytes)
 	}
 	for j := 0; j < 10; j++ {
@@ -134,11 +138,11 @@ func TestProxy(t *testing.T) {
 
 	// check the current status
 	// response, err := http.Get(server.URL + "/info")
-	// assert.NoError(t, err)
+	// require.NoError(t, err)
 
 	//
 	resp, err := http.Get(server.URL + "/update")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer resp.Body.Close()
 
 	time.Sleep(time.Second * 1)

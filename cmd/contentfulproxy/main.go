@@ -8,6 +8,7 @@ import (
 	"github.com/foomo/keel"
 	"github.com/foomo/keel/log"
 	"github.com/foomo/keel/net/http/middleware"
+	"github.com/foomo/keel/service"
 )
 
 const (
@@ -34,32 +35,30 @@ func main() {
 	backendURL := config.DefaultBackendURL(c)
 
 	// create proxy
-	proxy, _ := proxy.NewProxy(
+	p, err := proxy.NewProxy(
 		context.Background(),
 		log.WithServiceName(l, ServiceName),
 		backendURL,
 		webserverPath,
 		webhookURLs,
 	)
+	if err != nil {
+		l.Fatal(err.Error())
+	}
 
 	// add the service to keel
 	svr.AddServices(
-		keel.NewServiceHTTP(
+		service.NewHTTP(
 			log.WithServiceName(l, ServiceName),
 			ServiceName,
 			webserverAddress(),
-			proxy,
-			getMiddleWares()...,
+			p,
+			middleware.Logger(),
+			middleware.Telemetry(),
+			middleware.RequestID(),
+			middleware.Recover(),
 		),
 	)
-	svr.Run()
-}
 
-func getMiddleWares() []middleware.Middleware {
-	return []middleware.Middleware{
-		middleware.Logger(),
-		middleware.Telemetry(),
-		middleware.RequestID(),
-		middleware.Recover(),
-	}
+	svr.Run()
 }

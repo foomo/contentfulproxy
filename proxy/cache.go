@@ -1,9 +1,9 @@
 package proxy
 
 import (
-	"crypto/md5" // nolint:gosec
+	"crypto/md5" //nolint:gosec
 	"encoding/hex"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -31,7 +31,7 @@ type Cache struct {
 }
 
 func (c *Cache) set(id cacheID, response *http.Response) (*cachedResponse, error) {
-	responseBytes, err := ioutil.ReadAll(response.Body)
+	responseBytes, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (c *Cache) callWebHooks() {
 	for _, url := range c.webHooks() {
 		go func(url string, l *zap.Logger) {
 			l.Info("call webhook")
-			resp, err := http.Get(url) // nolint:gosec
+			resp, err := http.Get(url) //nolint:gosec
 			if err != nil {
 				l.Error("error while calling webhook", zap.Error(err))
 			}
@@ -102,8 +102,8 @@ func getCacheIDForRequest(r *http.Request, pathPrefix func() string) cacheID {
 		}
 	}
 	// hash it here maybe, to keep it shorter
-	hash := md5.New() // nolint:gosec
-	hash.Write([]byte(id))
+	hash := md5.New() //nolint:gosec
+	_, _ = hash.Write([]byte(id))
 	id = hex.EncodeToString(hash.Sum(nil))
 	return cacheID(id)
 }

@@ -109,7 +109,7 @@ func NewProxy(ctx context.Context, l *zap.Logger, backendURL func() string, path
 	}, nil
 }
 
-func getLoop(
+func getLoop( //nolint:revive
 	ctx context.Context,
 	l *zap.Logger,
 	backendURL func() string,

@@ -25,7 +25,7 @@ func getJobRunner(l *zap.Logger, c *Cache, backendURL func() string, pathPrefix 
 		// backend url is the contentful api domain like https://cdn.contenful.com
 		calledURL := backendURL() + stripPrefixFromURL(job.request.URL.RequestURI(), pathPrefix)
 		l.Info("URL called by job-runner", log.FURL(calledURL))
-		req, err := http.NewRequest("GET", calledURL, nil)
+		req, err := http.NewRequestWithContext(job.request.Context(), http.MethodGet, calledURL, nil)
 		if err != nil {
 			chanJobDone <- requestJobDone{
 				id:  id,
